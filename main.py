@@ -9,20 +9,34 @@ class minesweeper():
         self.h = h
         self.nb_mines = nb_mines
         
-        self.grid = np.zeros((h,w,2), dtype=int)
+        self.revealed = 0
         
+        self.init_grid()
+        self.game()
+        
+    def init_grid(self):
+        self.grid = np.zeros((self.h,self.w,2), dtype=int)
+        self.display()
+        
+        l_init,c_init = self.get_coords()
+        
+        begin = neighbourhood_3x3(self.h,self.w,(l_init,c_init))
+        begin.append((l_init,c_init))
+        
+        self.mines = self.unique_mines(begin)
         hidden = self.grid[:,:,0]
-        self.mines = self.unique_mines()
         for l,c in self.mines:
             hidden[l,c]=-1
-            nbhs = neighbourhood_3x3(w,h,(l,c))
+            nbhs = neighbourhood_3x3(self.h,self.w,(l,c))
             for l_n,c_n in nbhs:
                 if hidden[l_n,c_n] != -1:
                     hidden[l_n,c_n] += 1
-        self.game()
+                    
+        self.reveal_cell((l_init,c_init))
         
-    def unique_mines(self):
+    def unique_mines(self, avoid):
         pos = [(i, j) for i in range(self.h) for j in range(self.w)]
+        pos = [p for p in pos if p not in avoid]
         mines = rd.sample(pos, self.nb_mines)
         return mines
                     
@@ -30,8 +44,9 @@ class minesweeper():
         displayed = self.grid[:,:,0].copy().astype(str)
         displayed[self.grid[:,:,1]==0] = '■'
         displayed[self.grid[:,:,1]==2] = '►'
-        displayed[displayed[:,:]=='0'] = ''
-        displayed[displayed[:,:]=='-1'] = '☼'
+        displayed[displayed=='0'] = ''
+        displayed[displayed=='-1'] = '☼'
+        displayed[displayed=='-2'] = '♣'
         print(tabulate(displayed, tablefmt="grid"))
         
     def interaction(self):
@@ -42,6 +57,16 @@ class minesweeper():
                 break
             print("L'action doit être c, f ou r.")
         
+        l,c = self.get_coords()
+            
+        if inter == 'c':
+            self.reveal_cell((l,c))
+        elif inter == 'f':
+            self.put_flag((l,c))
+        elif inter == 'r':
+            self.remove_flag((l,c))
+            
+    def get_coords(self):
         while True:
             coords = input("Remplissez les coordonnées de la case à modifier (ex : ligne 2 et colonne 3 -> 23) :\n>>> ")
             
@@ -62,13 +87,8 @@ class minesweeper():
                 continue
             
             break
-            
-        if inter == 'c':
-            self.reveal_cell((l,c))
-        elif inter == 'f':
-            self.put_flag((l,c))
-        elif inter == 'r':
-            self.remove_flag((l,c))
+        
+        return l,c
             
     def reveal_cell(self, coords):
         l,c = coords
@@ -77,13 +97,12 @@ class minesweeper():
                 self.grid[l,c,1] = 1
                 self.revealed += 1
                 
-                for nbhd in neighbourhood_3x3(self.w, self.h, (l,c)):
+                for nbhd in neighbourhood_3x3(self.h, self.w, (l,c)):
                     self.reveal_cell(nbhd)
                     
             elif self.grid[l,c,0] == -1:
                self.grid[l,c,1] = 1
-               self.end = True
-               print("Perdu... tu as fait exploser une mine ☼")
+               self.loose()
                
             elif self.grid[l,c,0] == 0:
                 pass
@@ -91,9 +110,8 @@ class minesweeper():
                 self.grid[l,c,1] = 1
                 self.revealed += 1
             
-        if self.revealed == self.w*self.h - self.nb_mines:
-            self.end = True
-            print("Bravo, tu as trouvé toutes les mines !")
+        if self.revealed == self.w*self.h - self.nb_mines and not self.end :
+            self.win()
     
     def put_flag(self, coords):
         l,c = coords
@@ -105,19 +123,26 @@ class minesweeper():
         if self.grid[l,c,1] == 2:
             self.grid[l,c,1] = 0
             
-    def create_mines(self):
-        self.display()
-        self.interaction()            
+    def win(self):
+        self.end = True
+        print("Bravo, tu as trouvé toutes les mines !")
+        self.grid[:,:,0][self.grid[:,:,0] == -1] = -2
+        self.grid[:,:,1] = 1
+        
+    def loose(self):
+        self.end = True
+        print("Perdu... tu as fait exploser une mine ☼")
+        self.grid[:,:,1] = 1
+
     def game(self):
         self.end = False
-        self.revealed = 0
-        self.create_mines()
         while not self.end:
-            self.interaction()
             self.display()
+            self.interaction()
+        self.display()
 
     
-def neighbourhood_3x3(w, h, coords):
+def neighbourhood_3x3(h, w, coords):
     l,c = coords
     if coords == (0,0):
         nbhd = [(0,1),(1,0),(1,1)]
