@@ -254,47 +254,66 @@ def neighbourhood_3x3(h, w, coords):
 
 
 def display_board(game):
-    for l in range(game.h):
-        row = ""
-        for c in range(game.w):
-            state = game.grid[l, c, 1]
-            val = game.grid[l, c, 0]
+    """
+    Affiche la grille dans la console en utilisant les mêmes symboles que dans ta méthode display().
+    """
+    displayed = game.grid[:, :, 0].copy().astype(str)
+    displayed[game.grid[:, :, 1] == 0] = '■'
+    displayed[game.grid[:, :, 1] == 2] = '►'
+    displayed[displayed == '0'] = ''
+    displayed[displayed == '-1'] = '☼'
+    displayed[displayed == '-2'] = '♣'
+    print(tabulate(displayed, tablefmt="grid"))
 
-            if state == 0:
-                row += " . "
-            elif state == 2:
-                row += " F "
-            elif state == 1:
-                if val == -1:
-                    row += " * "
-                elif val == 0:
-                    row += "   "
-                else:
-                    row += f" {val} "
-        print(row)
-    print()
 
 def console_play():
+    """
+    Version console jouable du jeu Minesweeper.
+    """
     game = minesweeper(9, 9, 10)
 
     while not game.end:
         display_board(game)
-        action = input("Action (r pour reveal / f pour flag) : ")
-        l = int(input("ligne : "))
-        c = int(input("colonne : "))
+        # action de l'utilisateur
+        while True:
+            action = input("Action (c pour reveal / f pour flag / r pour enlever drapeau) : ")
+            if action in ['c', 'f', 'r']:
+                break
+            print("L'action doit être c, f ou r.")
 
+        # coordonnées
+        while True:
+            coords = input("Entrez les coordonnées (ligne puis colonne, ex 23) : ")
+            if len(coords) != 2:
+                print("Les coordonnées doivent être composées de 2 caractères.")
+                continue
+            try:
+                l, c = int(coords[0]), int(coords[1])
+            except ValueError:
+                print("Les coordonnées doivent être des nombres entiers.")
+                continue
+            if not (0 <= l < game.h and 0 <= c < game.w):
+                print(f"Coordonnées invalides : 0 <= ligne < {game.h}, 0 <= colonne < {game.w}")
+                continue
+            break
+
+        # premier clic
         if game.first_click:
             game.init_grid((l, c))
         else:
-            if action == "r":
+            if action == "c":
                 game.reveal_cell((l, c))
             elif action == "f":
-                if game.grid[l, c, 1] == 2:
-                    game.remove_flag((l, c))
-                else:
-                    game.put_flag((l, c))
+                game.put_flag((l, c))
+            elif action == "r":
+                game.remove_flag((l, c))
 
     display_board(game)
+    if game.revealed == game.w * game.h - game.nb_mines:
+        print("🎉 Bravo ! Tu as gagné !")
+    else:
+        print("💥 Perdu... tu as fait exploser une mine.")
+
 
 
 
