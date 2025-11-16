@@ -2,9 +2,8 @@ import numpy as np
 import random as rd
 from tabulate import tabulate
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QPushButton, QGridLayout, QMessageBox
+    QApplication, QWidget, QPushButton, QGridLayout, QMessageBox, QComboBox, QVBoxLayout, QLabel
 )
-from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
 
 class minesweeper():
@@ -44,56 +43,6 @@ class minesweeper():
         pos = [p for p in pos if p not in avoid]
         mines = rd.sample(pos, self.nb_mines)
         return mines
-    
-    # def display(self):
-    #     displayed = self.grid[:,:,0].copy().astype(str)
-    #     displayed[self.grid[:,:,1]==0] = '■'
-    #     displayed[self.grid[:,:,1]==2] = '►'
-    #     displayed[displayed=='0'] = ''
-    #     displayed[displayed=='-1'] = '☼'
-    #     displayed[displayed=='-2'] = '♣'
-    #     print(tabulate(displayed, tablefmt="grid"))
-        
-    # def interaction(self):
-    #     while True:
-    #         inter = input("Choisissez une action :\nc -> Révéler une case\nf -> Mettre un drapeau\nr -> Enlever un drapeau\n>>> ")
-            
-    #         if inter in ['c', 'f', 'r']:
-    #             break
-    #         print("L'action doit être c, f ou r.")
-        
-    #     l,c = self.get_coords()
-            
-    #     if inter == 'c':
-    #         self.reveal_cell((l,c))
-    #     elif inter == 'f':
-    #         self.put_flag((l,c))
-    #     elif inter == 'r':
-    #         self.remove_flag((l,c))
-            
-    # def get_coords(self):
-    #     while True:
-    #         coords = input("Remplissez les coordonnées de la case à modifier (ex : ligne 2 et colonne 3 -> 23) :\n>>> ")
-            
-    #         if len(coords) != 2:
-    #             print("Les coordonnées doivent être composées de 2 caractères.\n")
-    #             continue
-            
-    #         try:
-    #             int_coords = int(coords)
-    #         except:
-    #             print("Les coordonnées doivent être des nombres entiers.\n")
-    #             continue
-
-    #         l,c = int(coords[0]), int(coords[1])
-            
-    #         if not (0 <= l < self.h and 0 <= c < self.w):
-    #             print(f"Les coordonnées doivent être comprises entre :\n0 et {self.h-1} pour la ligne,\n0 et {self.w-1} pour la colonne.\n")
-    #             continue
-            
-    #         break
-        
-    #     return l,c  
             
     def reveal_cell(self, coords):
         if self.end:
@@ -253,27 +202,27 @@ def neighbourhood_3x3(h, w, coords):
     return nbhd
 
 
-def display_board(game):
-    """
-    Affiche la grille dans la console en utilisant les mêmes symboles que dans ta méthode display().
-    """
-    displayed = game.grid[:, :, 0].copy().astype(str)
-    displayed[game.grid[:, :, 1] == 0] = '■'
-    displayed[game.grid[:, :, 1] == 2] = '►'
-    displayed[displayed == '0'] = ''
-    displayed[displayed == '-1'] = '☼'
-    displayed[displayed == '-2'] = '♣'
-    print(tabulate(displayed, tablefmt="grid"))
-
-
 def console_play():
     """
     Version console jouable du jeu Minesweeper.
     """
-    game = minesweeper(9, 9, 10)
-
+    w, h, nb_mines = choose_difficulty()
+    game = minesweeper(w, h, nb_mines)
+    
+    def display_board():
+        """
+        Affiche la grille dans la console en utilisant les mêmes symboles que dans ta méthode display().
+        """
+        displayed = game.grid[:, :, 0].copy().astype(str)
+        displayed[game.grid[:, :, 1] == 0] = '■'
+        displayed[game.grid[:, :, 1] == 2] = '►'
+        displayed[displayed == '0'] = ''
+        displayed[displayed == '-1'] = '☼'
+        displayed[displayed == '-2'] = '♣'
+        print(tabulate(displayed, tablefmt="grid"))
+    
     while not game.end:
-        display_board(game)
+        display_board()
         # action de l'utilisateur
         while True:
             action = input("Action (c pour reveal / f pour flag / r pour enlever drapeau) : ")
@@ -308,7 +257,7 @@ def console_play():
             elif action == "r":
                 game.remove_flag((l, c))
 
-    display_board(game)
+    display_board()
     if game.revealed == game.w * game.h - game.nb_mines:
         print("🎉 Bravo ! Tu as gagné !")
     else:
@@ -319,12 +268,67 @@ def console_play():
 
 def start_gui():
     app = QApplication([])
-    window = MinesweeperGUI(9, 9, 10)
-    window.show()
+    def start_game(h, w, mines):
+        window = MinesweeperGUI(h, w, mines)
+        window.show()
+    difficulty_window = DifficultyWindow(start_game)
+    difficulty_window.show()
     app.exec_()
 
+def choose_difficulty():
+    difficulty_levels = {
+        "facile": {"h": 8, "w": 10, "nb_mines": 10},
+        "moyen":  {"h": 14, "w": 18, "nb_mines": 40},
+        "difficile": {"h": 20, "w": 24, "nb_mines": 100}
+    }
+    
+    print("Choisissez un niveau : facile / moyen / difficile")
+    while True:
+        level = input("Niveau : ").lower()
+        if level in difficulty_levels:
+            params = difficulty_levels[level]
+            return params["w"], params["h"], params["nb_mines"]
+        print("Niveau invalide, réessayez...")
+        
+class DifficultyWindow(QWidget):
+    def __init__(self, start_callback):
+        super().__init__()
+        self.start_callback = start_callback
+        self.setWindowTitle("Choix de la difficulté")
 
-if __name__ == "__main__":
+        layout = QVBoxLayout()
+
+        self.combo = QComboBox()
+        self.combo.addItems(["Facile", "Moyen", "Difficile"])
+
+        play_button = QPushButton("Jouer")
+        play_button.clicked.connect(self.launch_game)
+
+        layout.addWidget(QLabel("Choisissez votre niveau :"))
+        layout.addWidget(self.combo)
+        layout.addWidget(play_button)
+
+        self.setLayout(layout)
+        self.resize(200, 120)
+
+    def launch_game(self):
+        choice = self.combo.currentText().lower()
+
+        difficulty = {
+            "facile":  (8, 10, 10),
+            "moyen":   (14, 18, 40),
+            "difficile": (20, 24, 100)
+        }
+
+        h, w, mines = difficulty[choice]
+        self.start_callback(h, w, mines)   # On appelle la fonction de lancement
+        self.close()
+
+
+
+
+
+if __name__ == "__main__":   
     print("Choisir le mode :")
     print("1 - Console")
     print("2 - Interface graphique PyQt5")
